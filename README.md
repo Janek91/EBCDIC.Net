@@ -1,5 +1,5 @@
 # EBCDIC.Net
-This is port of EBCDIC project from httpwww.yoda.arachsys.comcsharpebcdic to public Git repository
+This is port of EBCDIC project from http://www.yoda.arachsys.com/csharp/ebcdic/ to public Git repository
 
 EBCDIC Encoding Library
 -----------------------
