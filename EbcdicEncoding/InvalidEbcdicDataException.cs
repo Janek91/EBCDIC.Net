@@ -1,6 +1,6 @@
 using System;
 
-namespace JonSkeet.Ebcdic
+namespace EbcdicEncoding
 {
 	/// <summary>
 	/// Exception thrown if the embedded resource describing the

@@ -1,27 +1,77 @@
 using System;
-using System.IO;
-using System.Text;
 using System.Collections;
-using System.Reflection;
 using System.Globalization;
+using System.IO;
+using System.Reflection;
+using System.Text;
 
-namespace JonSkeet.Ebcdic
+namespace EbcdicEncoding
 {
-	/// <summary>
-	/// EBCDIC encoding class. Instances of this class are obtained using
-	/// the static GetEncoding method - the names of all supported encodings
-	/// are returned by the AllNames property. When encoding, characters
-	/// which aren't in the specified EBCDIC set are converted to the byte
-	/// representing '?' in the specified EBCDIC set if available, or 0 otherwise.
-	/// When decoding, bytes which aren't a recognised part of the specified
-	/// EBCDIC encoding are decoded as '?'. Shift-in and shift-out are
-	/// mapped directly to their unicode values, with no actual shifting.
-	/// This class is thus unsafe when used to decode byte streams which
-	/// rely on shifting into a double-byte character set. All methods
-	/// in this class are thread-safe.
-	/// </summary>
+    /// <summary>
+    /// EBCDIC encoding class. Instances of this class are obtained using
+    /// the static GetEncoding method - the names of all supported encodings
+    /// are returned by the AllNames property. When encoding, characters
+    /// which aren't in the specified EBCDIC set are converted to the byte
+    /// representing '?' in the specified EBCDIC set if available, or 0 otherwise.
+    /// When decoding, bytes which aren't a recognised part of the specified
+    /// EBCDIC encoding are decoded as '?'. Shift-in and shift-out are
+    /// mapped directly to their unicode values, with no actual shifting.
+    /// This class is thus unsafe when used to decode byte streams which
+    /// rely on shifting into a double-byte character set. All methods
+    /// in this class are thread-safe.
+    /// </summary>
     public class EbcdicEncoding : Encoding
     {
+        public enum AvailableEncodings
+        {
+            EBCDIC_AT_DE,
+            EBCDIC_AT_DE_A,
+            EBCDIC_BE,
+            EBCDIC_BR,
+            EBCDIC_CA_FR,
+            EBCDIC_CP_AR1,
+            EBCDIC_CP_AR2,
+            EBCDIC_CP_BE,
+            EBCDIC_CP_CA,
+            EBCDIC_CP_CH,
+            EBCDIC_CP_DK,
+            EBCDIC_CP_ES,
+            EBCDIC_CP_FI,
+            EBCDIC_CP_FR,
+            EBCDIC_CP_GB,
+            EBCDIC_CP_GR,
+            EBCDIC_CP_HE,
+            EBCDIC_CP_IS,
+            EBCDIC_CP_IT,
+            EBCDIC_CP_NL,
+            EBCDIC_CP_NO,
+            EBCDIC_CP_ROECE,
+            EBCDIC_CP_SE,
+            EBCDIC_CP_TR,
+            EBCDIC_CP_US,
+            EBCDIC_CP_WT,
+            EBCDIC_CP_YU,
+            EBCDIC_CYRILLIC,
+            EBCDIC_DK_NO,
+            EBCDIC_DK_NO_A,
+            EBCDIC_ES,
+            EBCDIC_ES_A,
+            EBCDIC_ES_S,
+            EBCDIC_FI_SE,
+            EBCDIC_FI_SE_A,
+            EBCDIC_FR,
+            EBCDIC_GREEK,
+            EBCDIC_INT,
+            EBCDIC_INT1,
+            EBCDIC_IS_FRISS,
+            EBCDIC_IT,
+            EBCDIC_JP_E,
+            EBCDIC_JP_KANA,
+            EBCDIC_PT,
+            EBCDIC_UK,
+            EBCDIC_US,
+        }
+
         #region Instance fields
         /// <summary>
         /// Map from each byte to the relevant char. A value of 0
@@ -29,7 +79,7 @@ namespace JonSkeet.Ebcdic
         /// not specified as part of the encoding. This is specified
         /// in the constructor.
         /// </summary>
-        readonly char[] byteToCharMap;
+        private readonly char[] byteToCharMap;
         /// <summary>
         /// The character to byte maps for each character. 
         /// Each element in this array is either an array of 256 
@@ -42,8 +92,9 @@ namespace JonSkeet.Ebcdic
         /// 256 characters. Effectively, this provides a reasonably
         /// fast sparse map implementation.
         /// </summary>
-        readonly byte[][] charBlockToByteBlockMap = new byte[256][];
-        string name;
+        private readonly byte[][] charBlockToByteBlockMap = new byte[256][];
+
+        private string name;
 
         /// <summary>
         /// Byte returned when a character which doesn't
@@ -51,20 +102,20 @@ namespace JonSkeet.Ebcdic
         /// Set in the constructor, after the character maps
         /// have been loaded.
         /// </summary>
-        byte unknownCharacterByte;
+        private byte unknownCharacterByte;
         #endregion
 
         #region Static fields
         /// <summary>
         /// The names of all available encodings.
         /// </summary>
-        static string[] allNames;
+        private static string[] allNames;
         /// <summary>
         /// A map from name to encoding. The name is
         /// in upper case, to allow easy case-insensitive matching
         /// in GetEncoding.
         /// </summary>
-        static readonly IDictionary encodingMap=new Hashtable();
+        private static readonly IDictionary encodingMap = new Hashtable();
         #endregion
 
         #region Informational properties
@@ -84,7 +135,7 @@ namespace JonSkeet.Ebcdic
         {
             get
             {
-                return (string[]) allNames.Clone();
+                return (string[])allNames.Clone();
             }
         }
         #endregion
@@ -98,12 +149,19 @@ namespace JonSkeet.Ebcdic
         /// <exception cref="NotSupportedException">
         /// The specified encoding name is not supported.
         /// </exception>
-        public static new EbcdicEncoding GetEncoding(string name)
+        private new static EbcdicEncoding GetEncoding(string name)
         {
-            EbcdicEncoding ret = (EbcdicEncoding) encodingMap[name.ToUpper(CultureInfo.InvariantCulture)];
-            if (ret==null)
-                throw new NotSupportedException("No EBCDIC encoding named "+name+" found.");
+            EbcdicEncoding ret = (EbcdicEncoding)encodingMap[name.ToUpper(CultureInfo.InvariantCulture)];
+            if (ret == null)
+            {
+                throw new NotSupportedException("No EBCDIC encoding named " + name + " found.");
+            }
             return ret;
+        }
+
+        public static Encoding GetEncoding(AvailableEncodings name)
+        {
+            return GetEncoding(name.ToString().Replace("_","-"));
         }
         #endregion
 
@@ -117,68 +175,73 @@ namespace JonSkeet.Ebcdic
             using (Stream data = Assembly.GetExecutingAssembly().
                 GetManifestResourceStream("EbcdicEncoding.ebcdic.dat"))
             {
-                if (data==null)
-                    throw new InvalidEbcdicDataException ("EBCDIC encodings resource not found.");
-                
-                int encodings = data.ReadByte();
-                if (encodings==-1)
+                if (data == null)
                 {
-                    throw new InvalidEbcdicDataException ("EBCDIC encodings resource empty.");
+                    throw new InvalidEbcdicDataException("EBCDIC encodings resource not found.");
+                }
+
+                int encodings = data.ReadByte();
+                if (encodings == -1)
+                {
+                    throw new InvalidEbcdicDataException("EBCDIC encodings resource empty.");
                 }
 
                 allNames = new string[encodings];
-                for (int i=0; i < encodings; i++)
+                for (int i = 0; i < encodings; i++)
                 {
                     int nameLength = data.ReadByte();
-                    if (nameLength==-1)
+                    if (nameLength == -1)
                     {
-                        throw new InvalidEbcdicDataException ("EBCDIC encodings resource truncated.");
+                        throw new InvalidEbcdicDataException("EBCDIC encodings resource truncated.");
                     }
-                    string name = "EBCDIC-"+
-                        Encoding.ASCII.GetString (ReadFully(data, nameLength), 0, nameLength);
-                    allNames[i]=name;
-                    byte[] rawMap = ReadFully (data, 512);
+                    string name = "EBCDIC-" +
+                        ASCII.GetString(ReadFully(data, nameLength), 0, nameLength);
+                    allNames[i] = name;
+                    byte[] rawMap = ReadFully(data, 512);
                     char[] map = new char[256];
-                    for (int j=0; j < 256; j++)
+                    for (int j = 0; j < 256; j++)
                     {
-                        map[j]=(char)((rawMap[j*2]<<8) | rawMap[j*2+1]);
+                        map[j] = (char)((rawMap[j * 2] << 8) | rawMap[j * 2 + 1]);
                     }
-                    encodingMap[name.ToUpper(CultureInfo.InvariantCulture)]=new EbcdicEncoding(name, map);
+                    encodingMap[name.ToUpper(CultureInfo.InvariantCulture)] = new EbcdicEncoding(name, map);
                 }
-                if (data.ReadByte()!=-1)
+                if (data.ReadByte() != -1)
+                {
                     throw new InvalidEbcdicDataException("EBCDIC encodings resource contains unused data.");
+                }
             }
         }
         #endregion
 
         #region Construction
-		EbcdicEncoding(string name, char[] byteToCharMap)
-		{
+
+        private EbcdicEncoding(string name, char[] byteToCharMap)
+        {
             this.name = name;
             this.byteToCharMap = byteToCharMap;
             ConstructCharToByteMaps();
             // This ends up with unknownCharacterByte either as 0
             // or the encoded form for '?', depending on whether or
             // not '?' is in the character set.
-            unknownCharacterByte=Encode ('?');
-		}
+            unknownCharacterByte = Encode('?');
+        }
 
         /// <summary>
         /// Constructs the reverse mapping to easily map from
         /// a character to a byte.
         /// </summary>
-        void ConstructCharToByteMaps()
+        private void ConstructCharToByteMaps()
         {
-            for (int i=0; i < 256; i++)
+            for (int i = 0; i < 256; i++)
             {
                 char c = byteToCharMap[i];
-                byte[] map = charBlockToByteBlockMap[c>>8];
-                if (map==null)
+                byte[] map = charBlockToByteBlockMap[c >> 8];
+                if (map == null)
                 {
                     map = new byte[256];
-                    charBlockToByteBlockMap[c>>8]=map;
+                    charBlockToByteBlockMap[c >> 8] = map;
                 }
-                map[c&0xff]=(byte)i;
+                map[c & 0xff] = (byte)i;
             }
         }
         #endregion
@@ -192,16 +255,14 @@ namespace JonSkeet.Ebcdic
         /// </summary>
         /// <param name="character">The character to encode.</param>
         /// <returns>The single byte encoded representation of the character.</returns>
-        byte Encode (char character)
+        private byte Encode(char character)
         {
-            byte ret;
-            byte[] map = charBlockToByteBlockMap[character>>8];
-            if (map==null)
-                ret=0;
-            else
-                ret=map[character&0xff];
-            if (ret==0 && character != 0)
+            byte[] map = charBlockToByteBlockMap[character >> 8];
+            byte ret = map == null ? (byte)0 : map[character & 0xff];
+            if (ret == 0 && character != 0)
+            {
                 return unknownCharacterByte;
+            }
             return ret;
         }
 
@@ -211,12 +272,14 @@ namespace JonSkeet.Ebcdic
         /// </summary>
         /// <param name="byteValue">The byte to decode.</param>
         /// <returns>The decoded character.</returns>
-        char Decode (byte byteValue)
+        private char Decode(byte byteValue)
         {
             char ret = byteToCharMap[byteValue];
             // Check for unknown character
-            if (ret==0 && byteValue != 0)
+            if (ret == 0 && byteValue != 0)
+            {
                 ret = '?';
+            }
             return ret;
         }
         #endregion
@@ -234,9 +297,9 @@ namespace JonSkeet.Ebcdic
         /// <exception cref="ArgumentOutOfRangeException">index or count is less than zero,
         /// or index and count do not denote a valid range in the character array.
         /// </exception>
-        public override int GetByteCount (char[] chars, int index, int count)
+        public override int GetByteCount(char[] chars, int index, int count)
         {
-            ValidateParameters (chars, index, count, "GetByteCount");
+            ValidateParameters(chars, index, count, "GetByteCount");
             return count;
         }
 
@@ -259,24 +322,28 @@ namespace JonSkeet.Ebcdic
         /// </exception>
         public override int GetBytes(char[] chars, int charIndex, int charCount, byte[] bytes, int byteIndex)
         {
-            ValidateParameters (chars, charIndex, charCount, "GetBytes");
-            ValidateParameters (bytes, byteIndex, 0, "GetBytes");
-            if (byteIndex+charCount > bytes.Length)
-                throw new ArgumentException ("Byte array passed to GetBytes is too short");
+            ValidateParameters(chars, charIndex, charCount, "GetBytes");
+            ValidateParameters(bytes, byteIndex, 0, "GetBytes");
+            if (byteIndex + charCount > bytes.Length)
+            {
+                throw new ArgumentException("Byte array passed to GetBytes is too short");
+            }
 
-            for (int i=0; i < charCount; i++)
-                bytes[byteIndex+i] = Encode(chars[charIndex+i]);
+            for (int i = 0; i < charCount; i++)
+            {
+                bytes[byteIndex + i] = Encode(chars[charIndex + i]);
+            }
 
             return charCount;
         }
-        
+
         /// <summary>
         /// Returns the maximum number of bytes required to encode a given number of characters.
         /// </summary>
         /// <param name="charCount">The number of characters to encode.</param>
         /// <returns>The maximum number of bytes required for encoding a given
         /// number of characters.</returns>
-        public override int GetMaxByteCount (int charCount)
+        public override int GetMaxByteCount(int charCount)
         {
             return charCount;
         }
@@ -294,9 +361,9 @@ namespace JonSkeet.Ebcdic
         /// <exception cref="ArgumentOutOfRangeException">index or count is less than zero,
         /// or index and count do not denote a valid range in the character array.
         /// </exception>
-        public override int GetCharCount (byte[] bytes, int index, int count)
+        public override int GetCharCount(byte[] bytes, int index, int count)
         {
-            ValidateParameters (bytes, index, count, "GetCharCount");
+            ValidateParameters(bytes, index, count, "GetCharCount");
             return count;
         }
 
@@ -319,40 +386,53 @@ namespace JonSkeet.Ebcdic
         /// </exception>
         public override int GetChars(byte[] bytes, int byteIndex, int byteCount, char[] chars, int charIndex)
         {
-            ValidateParameters (bytes, byteIndex, byteCount, "GetChars");
-            ValidateParameters (chars, charIndex, 0, "GetChars");
-            if (charIndex+byteCount > chars.Length)
-                throw new ArgumentException ("Character array passed to GetChars is too short");
+            ValidateParameters(bytes, byteIndex, byteCount, "GetChars");
+            ValidateParameters(chars, charIndex, 0, "GetChars");
+            if (charIndex + byteCount > chars.Length)
+            {
+                throw new ArgumentException("Character array passed to GetChars is too short");
+            }
 
-            for (int i=0; i < byteCount; i++)
-                chars[charIndex+i] = Decode(bytes[byteIndex+i]);
+            for (int i = 0; i < byteCount; i++)
+            {
+                chars[charIndex + i] = Decode(bytes[byteIndex + i]);
+            }
 
             return byteCount;
         }
-        
+
         /// <summary>
         /// Returns the maximum number of characted producted by decoding a given number of bytes.
         /// </summary>
         /// <param name="byteCount">The number of bytes to decode.</param>
         /// <returns>The maximum number of characters produced by decoding a given
         /// number of bytes.</returns>
-        public override int GetMaxCharCount (int byteCount)
+        public override int GetMaxCharCount(int byteCount)
         {
             return byteCount;
         }
         #endregion
 
         #region Utility methods
-        static void ValidateParameters (Array array, int index, int count, string methodName)
+
+        private static void ValidateParameters(Array array, int index, int count, string methodName)
         {
-            if (array==null)
-                throw new ArgumentNullException ("Null array passed to "+methodName);
+            if (array == null)
+            {
+                throw new ArgumentNullException("Null array passed to " + methodName);
+            }
             if (index < 0)
-                throw new ArgumentOutOfRangeException ("Negative index passed to "+methodName);
+            {
+                throw new ArgumentOutOfRangeException("Negative index passed to " + methodName);
+            }
             if (count < 0)
-                throw new ArgumentOutOfRangeException ("Negative count passed to "+methodName);
+            {
+                throw new ArgumentOutOfRangeException("Negative count passed to " + methodName);
+            }
             if (index + count > array.Length)
-                throw new ArgumentOutOfRangeException ("index+count > length in "+methodName);
+            {
+                throw new ArgumentOutOfRangeException("index+count > length in " + methodName);
+            }
         }
 
         /// <summary>
@@ -362,19 +442,21 @@ namespace JonSkeet.Ebcdic
         /// <param name="stream">Stream to read data from</param>
         /// <param name="count">Number of bytes to read</param>
         /// <returns>The data from the stream as a byte array</returns>
-        static byte[] ReadFully (Stream stream, int count)
+        private static byte[] ReadFully(Stream stream, int count)
         {
             byte[] ret = new byte[count];
-            int off=0;
+            int off = 0;
             while (off < count)
             {
-                int len = stream.Read (ret, off, count-off);
+                int len = stream.Read(ret, off, count - off);
                 if (len <= 0)
+                {
                     throw new InvalidEbcdicDataException("EBCDIC encodings resource truncated.");
+                }
                 off += len;
             }
             return ret;
         }
         #endregion
-	}
+    }
 }
